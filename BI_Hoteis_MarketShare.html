@@ -147,7 +147,7 @@ header p{font-size:0.82rem;opacity:0.75;margin-top:3px;}
 <header><div>
   <h1>&#128202; BI Market Share &#8212; Hoteis Sao Paulo</h1>
   <p>STR Report &middot; Dados MTD &middot; Junho 2026 &middot; <span class="mtd-dias">&#128197; 18 dias capturados</span></p>
-  <p class="gerado">Gerado em: 19/06/2026 10:21</p>
+  <p class="gerado">Gerado em: 19/06/2026 15:56</p>
 </div><span class="badge">JUN / 2026</span></header>
 <div class="periodo-shortcuts"><span class="mes-filter-label">&#9201; Atalho:</span><button class="period-btn" onclick="selectPeriodo([15, 16, 17])">&#218;lt. 3M</button><button class="period-btn" onclick="selectPeriodo([12, 13, 14, 15, 16, 17])">&#218;lt. 6M</button><button class="period-btn" onclick="selectPeriodo([12, 13, 14, 15, 16, 17])">2026</button><button class="period-btn" onclick="selectPeriodo([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])">2025</button><button class="period-btn" onclick="selectPeriodo([-1])">Atual</button></div>
 <div class="mes-filter"><span class="mes-filter-label">&#128197; Mes:</span> <button class="mes-btn atual-btn active" data-idx="-1" onclick="toggleMes(-1)">Atual (JUN / 2026)</button> <button class="mes-btn" data-idx="0" onclick="toggleMes(0)">Jan/25</button> <button class="mes-btn" data-idx="1" onclick="toggleMes(1)">Fev/25</button> <button class="mes-btn" data-idx="2" onclick="toggleMes(2)">Mar/25</button> <button class="mes-btn" data-idx="3" onclick="toggleMes(3)">Abr/25</button> <button class="mes-btn" data-idx="4" onclick="toggleMes(4)">Mai/25</button> <button class="mes-btn" data-idx="5" onclick="toggleMes(5)">Jun/25</button> <button class="mes-btn" data-idx="6" onclick="toggleMes(6)">Jul/25</button> <button class="mes-btn" data-idx="7" onclick="toggleMes(7)">Ago/25</button> <button class="mes-btn" data-idx="8" onclick="toggleMes(8)">Set/25</button> <button class="mes-btn" data-idx="9" onclick="toggleMes(9)">Out/25</button> <button class="mes-btn" data-idx="10" onclick="toggleMes(10)">Nov/25</button> <button class="mes-btn" data-idx="11" onclick="toggleMes(11)">Dez/25</button> <button class="mes-btn" data-idx="12" onclick="toggleMes(12)">Jan/26</button> <button class="mes-btn" data-idx="13" onclick="toggleMes(13)">Fev/26</button> <button class="mes-btn" data-idx="14" onclick="toggleMes(14)">Mar/26</button> <button class="mes-btn" data-idx="15" onclick="toggleMes(15)">Abr/26</button> <button class="mes-btn" data-idx="16" onclick="toggleMes(16)">Mai/26</button></div>
@@ -867,7 +867,8 @@ function updateHighlightCards(){
   if(nm<13){return;}
   const curI=nm-1,prevI=nm-13;
   let gainH=null,gainV=-Infinity,dropH=null,dropV=Infinity;
-  Object.keys(HIST.regioes||{}).forEach(reg=>{
+  const yoyRegList=currentRegion==='Todas'?Object.keys(HIST.regioes||{}):[currentRegion];
+  yoyRegList.forEach(reg=>{
     const tend=((HIST.regioes[reg]||{}).tend)||{};
     Object.entries(tend).forEach(([hotel,data])=>{
       const arr=data['occ']||[];
