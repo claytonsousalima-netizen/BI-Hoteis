@@ -4,14 +4,20 @@
 # Stack: bi-hoteis
 # Services: app (Nginx serving static report)
 # Deployment: 2 replicas, rolling updates, health checks
+#
+# Referência para a VM App (Docker Swarm). O deploy-aws.yml é responsável
+# por substituir a linha "image:" via sed antes de rodar
+# `docker stack deploy` — NÃO edite manualmente na VM.
+# (docker stack deploy não interpola de forma confiável ${VAR} vindas do
+# ambiente, então evitamos variáveis aqui, igual ao rouparia-conectada.)
 # ============================================================
 
 version: '3.8'
 
 services:
   app:
-    image: ghcr.io/${REGISTRY_ORG}/bi-hoteis:${IMAGE_TAG:-latest}
-    container_name: ${STACK_NAME}_app
+    image: ghcr.io/claytonsousalima-netizen/bi-hoteis:latest
+    container_name: bi-hoteis_app
 
     # Expose port 80 (internal to Swarm overlay network only)
     # External access via nginx reverse proxy on host
@@ -20,7 +26,7 @@ services:
 
     # Overlay network for service-to-service communication
     networks:
-      - ${STACK_NAME}_appnet
+      - bi-hoteis_appnet
 
     # ===== DOCKER SWARM DEPLOYMENT CONFIG =====
     deploy:
@@ -51,7 +57,7 @@ services:
         health: "true"
 
 networks:
-  ${STACK_NAME}_appnet:
+  bi-hoteis_appnet:
     driver: overlay
     driver_opts:
       com.docker.network.driver.overlay.vxlan_list: 4789

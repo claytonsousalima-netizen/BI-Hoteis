@@ -133,57 +133,54 @@ jobs:
 
           echo "=== Canary Deploy: bi-hoteis ==="
 
-          export IMAGE_TAG="IMG_TAG_PLACEHOLDER"
-          export REGISTRY_ORG="REGISTRY_ORG_PLACEHOLDER"
           export STACK_NAME="bi-hoteis"
 
-          # Login to GHCR
           echo "GHCR_TOKEN_PLACEHOLDER" | docker login ghcr.io -u "GHCR_USERNAME_PLACEHOLDER" --password-stdin
           echo "[OK] GHCR authenticated"
 
-          # Create/update .env file
-          mkdir -p /opt/app-bi-hoteis
-          cat > /opt/app-bi-hoteis/.env << ENVEOF
-          STACK_NAME=$STACK_NAME
-          IMAGE_TAG=$IMAGE_TAG
-          REGISTRY_ORG=$REGISTRY_ORG
-          ENVEOF
+          IMAGE="ghcr.io/REGISTRY_ORG_PLACEHOLDER/bi-hoteis:IMG_TAG_PLACEHOLDER"
+          COMPOSE_FILE="/opt/app-bi-hoteis/docker-compose.yml"
 
-          echo "Pulling ghcr.io/$REGISTRY_ORG/bi-hoteis:$IMAGE_TAG..."
-          docker pull "ghcr.io/$REGISTRY_ORG/bi-hoteis:$IMAGE_TAG"
+          echo "Pulling ${IMAGE}..."
+          docker pull "${IMAGE}"
           echo "[OK] Image pulled"
 
+          echo "Updating ${COMPOSE_FILE}..."
+          sed -i "s|image: ghcr.io/.*/bi-hoteis:.*|image: ${IMAGE}|" "$COMPOSE_FILE"
+          echo "[OK] Compose updated"
+
           echo "Deploying stack..."
-          cd /opt/app-bi-hoteis
-          docker stack deploy -c docker-compose.yml "$STACK_NAME" --with-registry-auth
+          docker stack deploy -c "$COMPOSE_FILE" bi-hoteis --with-registry-auth
           echo "[OK] Stack deployed"
 
           echo "Monitoring rollout..."
           for i in $(seq 1 36); do
-            REPLICAS=$(docker service ls --filter name="$STACK_NAME" --format "{{.Replicas}}" 2>/dev/null | head -1 || echo "0/0")
-            echo "[$i/36] Replicas: $REPLICAS"
+            SVC=$(docker service ls --filter name=bi-hoteis_app --format "{{.Replicas}}" 2>/dev/null || echo "0/0")
+            RUNNING=$(echo "$SVC" | cut -d/ -f1)
+            DESIRED=$(echo "$SVC" | cut -d/ -f2)
+            echo "[$i/36] bi-hoteis_app: ${SVC}"
 
-            if [ "$REPLICAS" = "2/2" ]; then
-              echo "[OK] All replicas ready!"
-              break
+            if [ "${RUNNING}" = "${DESIRED}" ] && [ "${RUNNING}" -gt 0 ] 2>/dev/null; then
+              echo "Rollout complete. Running health check..."
+
+              for h in $(seq 1 12); do
+                HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/healthz 2>/dev/null || echo "000")
+                if [ "${HTTP}" = "200" ]; then
+                  echo "[OK] Health check passed (HTTP ${HTTP})"
+                  echo "=== Deploy successful ==="
+                  exit 0
+                fi
+                echo "[health] ${h}/12: HTTP ${HTTP}"
+                sleep 5
+              done
+
+              echo "[FAIL] Health check failed after rollout"
+              exit 1
             fi
-
             sleep 10
           done
 
-          echo "Running health checks..."
-          for i in $(seq 1 12); do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/healthz 2>/dev/null || echo "000")
-            if [ "$HTTP" = "200" ]; then
-              echo "[OK] Health check passed (HTTP $HTTP)"
-              echo "=== Deploy successful ==="
-              exit 0
-            fi
-            echo "[$i/12] Health check waiting (HTTP $HTTP)..."
-            sleep 5
-          done
-
-          echo "[FAIL] Health check failed after rollout"
+          echo "[FAIL] Rollout timed out (6 min)"
           exit 1
           DEPLOYEOF
 
