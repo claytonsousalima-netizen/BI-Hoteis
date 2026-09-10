@@ -119,73 +119,91 @@ jobs:
 
       - name: Execute deployment on EC2 via SSM
         id: ssm-deploy
+        env:
+          INSTANCE_ID: ${{ steps.find-instance.outputs.instance_id }}
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          REGISTRY_ORG: ${{ github.repository_owner }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ steps.find-instance.outputs.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=cat > /tmp/deploy.sh << '"'"'EOF'"'"'
+          # Write deploy script to file
+          cat > /tmp/deploy.sh << 'DEPLOYEOF'
           #!/bin/bash
-          set -e
+          set -euo pipefail
 
-          echo "Starting deployment..."
+          echo "=== Canary Deploy: bi-hoteis ==="
 
-          # Environment variables
-          export IMAGE_TAG="${{ github.sha }}"
-          export REGISTRY_ORG="${{ github.repository_owner }}"
+          export IMAGE_TAG="IMG_TAG_PLACEHOLDER"
+          export REGISTRY_ORG="REGISTRY_ORG_PLACEHOLDER"
           export STACK_NAME="bi-hoteis"
+
+          # Login to GHCR
+          echo "GHCR_TOKEN_PLACEHOLDER" | docker login ghcr.io -u "GHCR_USERNAME_PLACEHOLDER" --password-stdin
+          echo "[OK] GHCR authenticated"
 
           # Create/update .env file
           mkdir -p /opt/app-bi-hoteis
-          cat > /opt/app-bi-hoteis/.env << EOF
-          STACK_NAME=bi-hoteis
+          cat > /opt/app-bi-hoteis/.env << ENVEOF
+          STACK_NAME=$STACK_NAME
           IMAGE_TAG=$IMAGE_TAG
           REGISTRY_ORG=$REGISTRY_ORG
-          EOF
+          ENVEOF
 
-          # Login to GHCR
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "Pulling ghcr.io/$REGISTRY_ORG/bi-hoteis:$IMAGE_TAG..."
+          docker pull "ghcr.io/$REGISTRY_ORG/bi-hoteis:$IMAGE_TAG"
+          echo "[OK] Image pulled"
 
-          # Pull image
-          docker pull ghcr.io/$REGISTRY_ORG/bi-hoteis:$IMAGE_TAG
-
-          # Deploy
+          echo "Deploying stack..."
           cd /opt/app-bi-hoteis
-          docker stack deploy -c docker-compose.yml $STACK_NAME --with-registry-auth
+          docker stack deploy -c docker-compose.yml "$STACK_NAME" --with-registry-auth
+          echo "[OK] Stack deployed"
 
-          echo "Deployment initiated. Monitoring..."
-
-          # Monitor rollout
-          for i in {1..36}; do
-            REPLICAS=$(docker service ls --filter name=$STACK_NAME --format "{{.Replicas}}" 2>/dev/null | head -1 || echo "0/0")
+          echo "Monitoring rollout..."
+          for i in $(seq 1 36); do
+            REPLICAS=$(docker service ls --filter name="$STACK_NAME" --format "{{.Replicas}}" 2>/dev/null | head -1 || echo "0/0")
             echo "[$i/36] Replicas: $REPLICAS"
 
-            if [[ "$REPLICAS" == "2/2" ]]; then
-              echo "✓ All replicas ready!"
+            if [ "$REPLICAS" = "2/2" ]; then
+              echo "[OK] All replicas ready!"
               break
             fi
 
             sleep 10
           done
 
-          # Health check
           echo "Running health checks..."
-          for i in {1..12}; do
-            if curl -f -s http://127.0.0.1/healthz > /dev/null 2>&1; then
-              echo "✓ Health check passed!"
+          for i in $(seq 1 12); do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/healthz 2>/dev/null || echo "000")
+            if [ "$HTTP" = "200" ]; then
+              echo "[OK] Health check passed (HTTP $HTTP)"
+              echo "=== Deploy successful ==="
               exit 0
             fi
-
-            echo "[$i/12] Health check waiting..."
+            echo "[$i/12] Health check waiting (HTTP $HTTP)..."
             sleep 5
           done
 
-          echo "✗ Health check failed!"
+          echo "[FAIL] Health check failed after rollout"
           exit 1
-          EOF
-          bash /tmp/deploy.sh'" \
+          DEPLOYEOF
+
+          # Replace placeholders with actual values
+          sed -i "s/IMG_TAG_PLACEHOLDER/${IMAGE_TAG}/g" /tmp/deploy.sh
+          sed -i "s/GHCR_TOKEN_PLACEHOLDER/${GHCR_TOKEN}/g" /tmp/deploy.sh
+          sed -i "s/GHCR_USERNAME_PLACEHOLDER/${GHCR_USERNAME}/g" /tmp/deploy.sh
+          sed -i "s/REGISTRY_ORG_PLACEHOLDER/${REGISTRY_ORG}/g" /tmp/deploy.sh
+
+          # JSON-encode and send via SSM
+          jq -n --rawfile cmd /tmp/deploy.sh '{"commands":[$cmd]}' > /tmp/params.json
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters file:///tmp/params.json \
             --output-s3-bucket-name "estancorp-ssm-logs" \
             --output-s3-key-prefix "bi-hoteis-deployments" \
             --region ${{ env.AWS_REGION }} \
+            --comment "Canary deploy bi-hoteis ${IMAGE_TAG}" \
             --query "Command.CommandId" \
             --output text)
 
