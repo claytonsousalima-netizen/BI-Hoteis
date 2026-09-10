@@ -1,0 +1,18 @@
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Variáveis de ambiente locais
+.env
+.env.local
+.env.*.local
+
+# Configurações locais do editor
+.vscode/
+*.code-workspace
+
+# Arquivos temporários
+*.log
+*.tmp
+*.bak
