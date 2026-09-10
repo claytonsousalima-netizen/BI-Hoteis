@@ -22,6 +22,7 @@ COPY BI_Hoteis_MarketShare.html /usr/share/nginx/html/
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD wget -qO- http://127.0.0.1/healthz || exit 1
 
+# EXPOSE port 80 for HTTP traffic
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
