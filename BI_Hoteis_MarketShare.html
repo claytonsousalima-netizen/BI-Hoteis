@@ -808,7 +808,7 @@ function renderYoY(){
           ticks:{callback:v=>(v>0&&v!==0?'+':'')+v.toFixed(_metric==='occ'?1:0)+(_metric==='occ'?'pp':''),font:{size:11}},
           title:{display:true,text:_metric==='occ'?'Pontos percentuais (pp)':_metric==='adr'?'Delta ADR (R$)':'Delta RevPar (R$)',font:{size:11}}
         },
-        y:{grid:{display:false},ticks:{font:{size:11},callback:function(val){return wrapLabel(this.getLabelForValue(val),22);}},afterFit(scale){scale.width=Math.max(scale.width,190);}}
+        y:{grid:{display:false},ticks:{font:{size:10},callback:function(val){return wrapLabel(this.getLabelForValue(val),18);}},afterFit(scale){scale.width=Math.max(scale.width,110);}}
       }
     }
   });
@@ -953,10 +953,10 @@ function buildCharts(){
     const el=document.getElementById(id);
     if(el&&el.parentElement)el.parentElement.style.height=chartH+'px';
   });
-  const yWrapCb=function(val){return wrapLabel(this.getLabelForValue(val),22);};
+  const yWrapCb=function(val){return wrapLabel(this.getLabelForValue(val),18);};
   const base={indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
     scales:{x:{grid:{color:'#eee'},ticks:{font:{size:10}}},
-      y:{grid:{display:false},ticks:{font:{size:10},callback:yWrapCb},afterFit(scale){scale.width=Math.max(scale.width,190);}}}};
+      y:{grid:{display:false},ticks:{font:{size:9},callback:yWrapCb},afterFit(scale){scale.width=Math.max(scale.width,110);}}}};
   if(chartOcc)chartOcc.destroy();if(chartAdr)chartAdr.destroy();if(chartRevpar)chartRevpar.destroy();
   const pOcc=null;// linha Mkt removida do gráfico OCC a pedido do usuário
   chartOcc=new Chart(document.getElementById('chartOcc'),{type:'bar',
